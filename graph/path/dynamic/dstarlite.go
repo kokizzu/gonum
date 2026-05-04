@@ -63,6 +63,9 @@ func NewDStarLite(s, t graph.Node, g graph.Graph, h path.Heuristic, m WorldModel
 		heuristic: h,
 	}
 	d.t.rhs = 0
+	if d.s.ID() == d.t.ID() {
+		d.s.rhs = 0
+	}
 
 	/*
 		procedure Main()
@@ -281,6 +284,7 @@ func (d *DStarLite) MoveTo(n graph.Node) {
 	d.last = d.s
 	d.s = d.model.Node(n.ID()).(*dStarLiteNode)
 	d.keyModifier += d.heuristic(d.last, d.s)
+	d.findShortestPath()
 }
 
 // UpdateWorld updates or adds edges in the world graph. UpdateWorld will

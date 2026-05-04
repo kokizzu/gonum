@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -629,6 +630,56 @@ func TestDStarLiteDynamic(t *testing.T) {
 				t.Logf("Test %d:\n%s", i, buf.String())
 			}
 		}
+	}
+}
+
+func TestMoveToAway(t *testing.T) {
+	t.Parallel()
+
+	g := simple.NewUndirectedGraph()
+	for i := range 2 {
+		g.SetEdge(simple.Edge{F: simple.Node(i), T: simple.Node(i + 1)})
+	}
+
+	d := NewDStarLite(simple.Node(1), simple.Node(2), g, path.NullHeuristic, simple.NewWeightedDirectedGraph(0, math.Inf(1)))
+
+	// Shortest path so far would be 1->2. Now move off the shortest path to force a replan.
+	d.MoveTo(simple.Node(0))
+
+	wantP := []graph.Node{simple.Node(0), simple.Node(1), simple.Node(2)}
+	p, w := d.Path()
+	if !samePath(p, wantP) || w != float64(len(wantP)-1) {
+		t.Errorf("unexpected path after move. got %v (weight %v), want %v (weight %v)", p, w, wantP, len(wantP)-1)
+	}
+}
+
+func TestStartEqualsTarget(t *testing.T) {
+	ok := make(chan struct{})
+	hang := make(chan struct{})
+	go func() {
+		select {
+		case <-time.After(time.Second):
+			close(hang)
+		case <-ok:
+		}
+	}()
+
+	g := simple.NewUndirectedGraph()
+	for i := range 2 {
+		g.SetEdge(simple.Edge{F: simple.Node(i), T: simple.Node(i + 1)})
+	}
+
+	go func() {
+		defer close(ok)
+		d := NewDStarLite(simple.Node(0), simple.Node(0), g, path.NullHeuristic, simple.NewWeightedDirectedGraph(0, math.Inf(1)))
+		d.MoveTo(simple.Node(1))
+		d.Path()
+	}()
+
+	select {
+	case <-ok:
+	case <-hang:
+		t.Error("timed out")
 	}
 }
 
